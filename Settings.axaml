@@ -10,7 +10,7 @@
 
         mc:Ignorable="d" d:DesignWidth="750" d:DesignHeight="450"
         x:Class="Autodraw.Settings"
-        Title="Settings"
+        Title="ColorLayers · Settings"
         WindowStartupLocation="CenterScreen"
         ExtendClientAreaChromeHints="NoChrome"
         ExtendClientAreaToDecorationsHint="True"
@@ -76,7 +76,7 @@
                         <TreeViewItem Classes="Round" Header="Debugging" Name="DebuggingSelector"/>
                     </TreeViewItem>
                     <TreeViewItem Classes="Round" Header="Themes and Configs">
-                        <TreeViewItem Classes="Round" Header="Marketplace" Name="MarketplaceSelector"/>
+                        <TreeViewItem Classes="Round" Header="Original AutoDraw Marketplace" Name="MarketplaceSelector"/>
                         <TreeViewItem Classes="Round" Header="Theme Editor" Name="ThemeEditorSelector"/>
                         <TreeViewItem Classes="Round" Header="Settings" Name="ThemeConfigSettingsSelector"/>
                     </TreeViewItem>
@@ -90,9 +90,9 @@
             
             <Grid Name="InfoTab" Grid.Column="2" Grid.Row="2" Opacity="0" IsHitTestVisible="False" Margin="4">
                 <StackPanel>
-                    <Label Content="{x:Static assets:Resources.AutoDrawVersionDetailed}"/>
-                    <Label Content="{x:Static assets:Resources.AutoDrawLanguageVersion}"/>
-                    <Label Content="{x:Static assets:Resources.AutoDrawNetFramework}"/>
+                    <Label Name="ForkVersion" Content="ColorLayers by Synrik 1.0"/>
+                    <TextBlock Name="ForkOrigin" Text="Fork of AutoDraw 2.2 by AlexDalas and Siydge" TextWrapping="Wrap"/>
+                    <TextBlock Name="ForkRuntime" Text="Windows · .NET 6" TextWrapping="Wrap"/>
                 </StackPanel>
             </Grid>
             
@@ -101,7 +101,8 @@
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
-                <Label HorizontalAlignment="Center" Grid.Row="0">More settings are to come, please suggest some settings you want in the Discord!</Label>
+                <TextBlock Name="DrawingSettingsNote" Margin="0 0 0 6" Grid.Row="0" TextWrapping="Wrap"
+                           Text="Original AutoDraw keyboard settings. Delete and End also stop ColorLayers."/>
                 <StackPanel Grid.Row="1">
                     <Label Padding="0" FontWeight="Bold">Generic:</Label>
                     <CheckBox Name="ShowPopup">Show Popup Upon Completion of Drawing</CheckBox>

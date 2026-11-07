@@ -35,6 +35,7 @@ public partial class Settings : Window
     public Settings()
     {
         InitializeComponent();
+        RefreshLanguage();
         
         LoadLocalThemeItems();
         
@@ -139,6 +140,26 @@ public partial class Settings : Window
         ImageCacheLocationClearButton.Click += ImageCacheLocationClearButtonOnClick;
     }
 
+    internal void RefreshLanguage()
+    {
+        Title = UiText.T("ColorLayers · Settings", "ColorLayers · Einstellungen");
+        InfoSelector.Header = "Info";
+        AboutSelector.Header = UiText.T("About", "Über das Programm");
+        LicensesSelector.Header = UiText.T("Licenses", "Lizenzen");
+        ForkVersion.Content = UiText.Title;
+        ForkOrigin.Text = UiText.T("Fork of AutoDraw 2.2 by AlexDalas and Siydge",
+            "Fork von AutoDraw 2.2 von AlexDalas und Siydge");
+        DrawingSettingsNote.Text = UiText.T(
+            "Original AutoDraw keyboard settings. Delete and End also stop ColorLayers.",
+            "Tastaturbelegung aus AutoDraw. Entf und Ende stoppen ColorLayers zusätzlich.");
+    }
+
+    internal void ShowAbout()
+    {
+        InfoSelector.IsExpanded = true;
+        SettingsTabs.SelectedItem = AboutSelector;
+    }
+
     private void MarketplaceTabsOnPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
     {
         if (e.Property.ToString() != "SelectedIndex") return;
@@ -156,7 +177,7 @@ public partial class Settings : Window
     private void SettingsTabsOnPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
     {
         if (e.Property.ToString() != "SelectedItem") return;
-        TreeViewItem select = (TreeViewItem)SettingsTabs.SelectedItem;
+        if (SettingsTabs.SelectedItem is not TreeViewItem select) return;
         string? selectionName = select.Name;
         if (selectionName == "" || selectionName is null || selectionName == " ") return;
         string selectionTabName = Regex.Replace(selectionName, "Selector$","")+"Tab";

@@ -1,7 +1,9 @@
 ﻿using System.Collections;
+using System;
 using System.Diagnostics;
 using System.Linq;
 using System.Numerics;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Threading;
@@ -27,12 +29,14 @@ public static class Drawing
     
     public static int PathValue = 12345678;
 
-    public static int Interval = 10000;
-    public static int ClickDelay = 1000; // Milliseconds, please multiply by 10000
+    public const int DefaultInterval = 1;
+    public const int DefaultClickDelay = 100;
+    public static int Interval = DefaultInterval;
+    public static int ClickDelay = DefaultClickDelay;
 
-    public static bool IsDrawing;
+    public static volatile bool IsDrawing;
     public static bool SkipRescan;
-    public static bool IsPaused;
+    public static volatile bool IsPaused;
     public static bool IsSkipping;
     public static bool FreeDraw2 = false;
 
@@ -92,14 +96,128 @@ public static class Drawing
     public static void Halt()
     {
         IsDrawing = false;
+        IsPaused = false;
     }
 
-    public static async Task<bool> Draw(SKBitmap bitmap)
+    internal static async Task<bool> DrawStrokes(
+        StrokePlan plan, PixelPoint origin, Func<bool> targetActive, Func<int, int, bool> targetAt,
+        Func<bool> paused, Action emergencyStop, CancellationToken stop, bool fast)
+    {
+        if (!targetActive() || (long)origin.X + plan.Width - 1 > int.MaxValue ||
+            (long)origin.Y + plan.Height - 1 > int.MaxValue)
+            return false;
+
+        var desktop = PhysicalMouse.GetDesktop();
+        // Keep the input stream below a rate that overwhelms ordinary drawing windows.
+        var intervalTicks = Math.Max(Stopwatch.Frequency / (fast ? 3000 : 2000), Interval);
+        var interval = TimeSpan.FromSeconds(intervalTicks / (double)Stopwatch.Frequency);
+        var clickDelay = Math.Max(0, ClickDelay);
+        var mouseDown = false;
+        var previous = new StrokePlan.Move();
+        try
+        {
+            foreach (var move in plan.Trace(stop))
+            {
+                if (move.StartsStroke)
+                {
+                    if (mouseDown)
+                    {
+                        await WaitForInput(TimeSpan.FromMilliseconds(8));
+                        Release();
+                        await WaitForInput(TimeSpan.FromMilliseconds(Math.Max(8, clickDelay)));
+                    }
+                    if (!await PaintAt(move.X, move.Y))
+                        return false;
+                    // Give the target a chance to process the new press before moving.
+                    await WaitForInput(TimeSpan.FromMilliseconds(8));
+                }
+                else
+                {
+                    // A held stroke may only advance to the next planned center.
+                    if (!mouseDown || Math.Abs(move.X - previous.X) > 1 || Math.Abs(move.Y - previous.Y) > 1 ||
+                        !await PaintAt(move.X, move.Y))
+                        return false;
+                }
+                previous = move;
+            }
+            if (mouseDown)
+                await WaitForInput(TimeSpan.FromMilliseconds(8));
+            return true;
+        }
+        finally
+        {
+            Release();
+        }
+
+        async ValueTask<bool> PaintAt(int relativeX, int relativeY)
+        {
+            CheckStop();
+            if (paused())
+            {
+                Release();
+                while (paused())
+                    await WaitForInput(TimeSpan.FromMilliseconds(25));
+            }
+
+            var x = origin.X + relativeX;
+            var y = origin.Y + relativeY;
+            if (!targetActive() || !targetAt(x, y) || !PhysicalMouse.MoveTo(desktop, x, y))
+                return false;
+
+            if (!mouseDown)
+            {
+                CheckStop();
+                if (!targetActive() || PhysicalMouse.Position() != new PixelPoint(x, y) ||
+                    !targetAt(x, y) || !PhysicalMouse.SetLeftButton(true))
+                    return false;
+                mouseDown = true;
+            }
+
+            if (interval.TotalMilliseconds >= 2)
+                await WaitForInput(interval);
+            else
+                await NOP(intervalTicks);
+            return true;
+        }
+
+        void Release()
+        {
+            if (!mouseDown) return;
+            if (!PhysicalMouse.SetLeftButton(false))
+                PhysicalMouse.SetLeftButton(false);
+            mouseDown = false;
+        }
+
+        void CheckStop()
+        {
+            if (PhysicalMouse.EmergencyStopDown)
+                emergencyStop();
+            stop.ThrowIfCancellationRequested();
+        }
+
+        async Task WaitForInput(TimeSpan duration)
+        {
+            var clock = Stopwatch.StartNew();
+            CheckStop();
+            for (var left = duration - clock.Elapsed; left > TimeSpan.Zero; left = duration - clock.Elapsed)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(Math.Clamp(left.TotalMilliseconds, 1, 12)), stop);
+                CheckStop();
+            }
+        }
+    }
+
+    public static async Task<bool> Draw(SKBitmap bitmap, Vector2? fixedCenter = null)
     {
         if (IsDrawing) return false;
 
         static void KeybindPress(object? sender, KeyboardHookEventArgs e)
         {
+            if (Config.IsStopDrawingKey(e.Data.KeyCode))
+            {
+                Halt();
+                return;
+            }
             if (e.Data.KeyCode == Config.Keybind_SkipRescan)
             {
                 if (NoRescan) return;
@@ -109,7 +227,7 @@ public static class Drawing
 
         static void KeybindRelease(object? sender, KeyboardHookEventArgs e)
         {
-            if (e.Data.KeyCode == Config.Keybind_StopDrawing) Halt();
+            if (Config.IsStopDrawingKey(e.Data.KeyCode)) Halt();
             if (e.Data.KeyCode == Config.Keybind_SkipRescan)
             {
                 if (NoRescan) return;
@@ -123,7 +241,7 @@ public static class Drawing
         Input.taskHook.KeyReleased += KeybindRelease;
 
         IsDrawing = true;
-        var usedPos = UseLastPos ? LastPos : Input.mousePos;
+        var usedPos = fixedCenter ?? (UseLastPos ? LastPos : Input.mousePos);
 
         Dispatcher.UIThread.Invoke(() =>
         {
@@ -139,10 +257,12 @@ public static class Drawing
 
         LastPos = usedPos;
         Pos startPos = new() { X = (int)usedPos.X - bitmap.Width / 2, Y = (int)usedPos.Y - bitmap.Height / 2 };
-        Input.MoveTo((short)startPos.X, (short)startPos.Y);
-        Input.SendClick(Input.MouseTypes.MouseLeft);
-
-        await NOP(100000);
+        if (IsDrawing)
+        {
+            Input.MoveTo((short)startPos.X, (short)startPos.Y);
+            Input.SendClick(Input.MouseTypes.MouseLeft);
+            await NOP(100000);
+        }
 
 
         if (_pixelArray == null) Debug.WriteLine("pixelArray was never created.");
@@ -163,11 +283,13 @@ public static class Drawing
                         while (IsPaused) await NOP(500000);
                         Input.MoveTo((short)x, (short)y);
                         await NOP(500000);
+                        if (!IsDrawing) break;
                         Input.SendClickDown(Input.MouseTypes.MouseLeft);
                     }
 
                     Input.MoveTo((short)x, (short)(y - 1));
                     await NOP(ClickDelay * 5000);
+                    if (!IsDrawing) break;
                     Input.MoveTo((short)x, (short)(y + 1));
                     Input.SendClickDown(Input.MouseTypes.MouseLeft);
                     await DrawArea(_x, _y, startPos, new Pos { X = bitmap.Width, Y = bitmap.Height });
@@ -180,12 +302,13 @@ public static class Drawing
         Input.taskHook.KeyPressed -= KeybindPress;
         Input.taskHook.KeyReleased -= KeybindRelease;
 
+        var completed = IsDrawing;
         IsDrawing = false;
         ResetScan(new Pos { X = bitmap.Width, Y = bitmap.Height });
         Dispatcher.UIThread.Invoke(() =>
         {
             _dataDisplay.Close();
-            if (ShowPopup) new MessageBox().ShowMessageBox("Drawing Finished!", "The drawing has finished! Yippee!");
+            if (completed && ShowPopup) new MessageBox().ShowMessageBox("Drawing Finished!", "The drawing has finished! Yippee!");
         });
         return true;
     }
@@ -217,6 +340,7 @@ public static class Drawing
                 while (IsPaused) await NOP(500000);
                 Input.MoveTo(x, y);
                 await NOP(500000);
+                if (!IsDrawing) break;
                 Input.SendClickDown(Input.MouseTypes.MouseLeft);
             }
 
@@ -231,6 +355,7 @@ public static class Drawing
                 await NOP(ClickDelay * 5000);
                 Input.MoveTo(x, y);
                 await NOP(ClickDelay * 5000);
+                if (!IsDrawing) break;
                 Input.SendClickDown(Input.MouseTypes.MouseLeft);
             }
 
@@ -245,6 +370,7 @@ public static class Drawing
                     distanceSinceLastClick = 0;
                     Input.SendClickUp(Input.MouseTypes.MouseLeft);
                     await NOP(Interval * 3);
+                    if (!IsDrawing) break;
                     Input.SendClickDown(Input.MouseTypes.MouseLeft);
                 }
             }

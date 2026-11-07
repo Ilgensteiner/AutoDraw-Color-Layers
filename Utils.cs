@@ -25,7 +25,7 @@ public static class ImageExtensions
             bitmap.GetPixels(),
             new PixelSize(bitmap.Width, bitmap.Height),
             new Vector(96, 96),
-            bitmap.GetPixelSpan().Length
+            bitmap.RowBytes
         );
     }
 }
@@ -41,6 +41,9 @@ public class Config
     public static KeyCode Keybind_SkipRescan = KeyCode.VcBackspace;
     public static KeyCode Keybind_LockPreview = KeyCode.VcLeftControl;
     public static KeyCode Keybind_ClearLock = KeyCode.VcBackQuote;
+
+    public static bool IsStopDrawingKey(KeyCode key) =>
+        key == Keybind_StopDrawing || key == KeyCode.VcDelete || key == KeyCode.VcEnd;
     
     public static Vector2 Preview_LastLockPos = new Vector2(0,0);
 
