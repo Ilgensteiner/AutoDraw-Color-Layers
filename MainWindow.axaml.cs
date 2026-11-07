@@ -1,12 +1,15 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using System.Threading;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
@@ -20,22 +23,20 @@ namespace Autodraw;
 public partial class MainWindow : Window
 {
     public static MainWindow? CurrentMainWindow;
-
     private readonly ImageProcessing.Filters _currentFilters = new()
         { Invert = false, MaxThreshold = 127, AlphaThreshold = 200 };
-
-    private readonly Regex _numberRegex = new(@"[^0-9]");
     private OpenAIPrompt? _aiPrompt;
-    private int _alphaThresh = 200;
     private Bitmap? _displayedBitmap;
     private bool _inChange;
 
+    private readonly Regex _numberRegex = new(@"[^0-9]");
+
     private long _lastMem;
+    private long _memoryPressure;
     private long _lastTime = DateTime.Now.ToFileTime();
     private int _maxBlackThreshold = 127;
+    private int _alphaThresh = 200;
 
-    // ReSharper disable once NotAccessedField.Local
-    private long _memoryPressure;
     private int _minBlackThreshold;
     private SKBitmap? _preFxBitmap = new(318, 318, true);
     private SKBitmap? _processedBitmap;
@@ -51,7 +52,7 @@ public partial class MainWindow : Window
     private SKBitmap? _rawBitmap = new(318, 318, true);
 
     private Settings? _settings;
-    public long sessionTime = DateTime.Now.ToFileTime();
+
 
     public MainWindow()
     {
@@ -72,6 +73,7 @@ public partial class MainWindow : Window
         //if (!File.Exists(Config.ConfigPath)) 
         //new Onboarding(CurrentMainWindow);
         Config.init();
+
 
         // Taskbar
         CloseAppButton.Click += (_, _) => Close();
@@ -151,6 +153,8 @@ public partial class MainWindow : Window
         SizeSlider.ValueChanged += SizeSliderOnValueChanged;
         WidthInput.TextChanging += WidthInputOnTextChanged;
         HeightInput.TextChanging += HeightInputOnTextChanged;
+
+
         PercentageNumber.TextChanging += PercentageNumberOnTextChanged;
 
         DrawIntervalElement.Text = Drawing.DefaultInterval.ToString();
@@ -292,6 +296,13 @@ public partial class MainWindow : Window
     private void Settings_Closed(object? sender, EventArgs e)
     {
         _settings = null;
+    }
+
+    private void OnPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) return;
+        if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed && e.GetPosition(this).Y <= 20)
+            BeginMoveDrag(e);
     }
 
 
@@ -752,19 +763,29 @@ public partial class MainWindow : Window
         WindowState = WindowState.Minimized;
     }
 
-    public async void PasteControl()
+    private async void PasteControl(object? sender, RoutedEventArgs e)
     {
+        if (Clipboard is not { } clipboard) return;
         try
         {
-            var clipboard = Clipboard;
-            var fileFormat = (await clipboard.GetFormatsAsync()).ToList()[0];
-            var file = await clipboard.GetDataAsync(fileFormat);
-            ImportImage("", (byte[])file);
+            if (await clipboard.GetDataAsync(DataFormats.Files) is IEnumerable<IStorageItem> files &&
+                files.FirstOrDefault()?.TryGetLocalPath() is { } path)
+            {
+                ImportImage(path);
+                return;
+            }
+            if (await clipboard.GetDataAsync("PNG") is byte[] image && image.Length > 0)
+            {
+                ImportImage(string.Empty, image);
+                return;
+            }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            Utils.Log("Error with PasteControl(): " + ex);
+            // Clipboard ownership can change during the asynchronous read.
         }
+        new MessageBox().ShowMessageBox(UiText.T("Paste image", "Bild einfügen"),
+            UiText.T("No supported image was found in the clipboard.", "Die Zwischenablage enthält kein unterstütztes Bild."), "error");
     }
 
     public async void SetConfigFolderViaDialog(object? sender, RoutedEventArgs e)
@@ -863,4 +884,5 @@ public partial class MainWindow : Window
         if (selectedItem == null) return;
         LoadConfig($"{Path.Combine(Config.GetEntry("ConfigFolder"), selectedItem)}.drawcfg");
     }
+
 }

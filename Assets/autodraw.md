@@ -1,7 +1,7 @@
-﻿## ColorLayers by Synrik 1.0
+﻿## ColorLayers by Synrik 1.2
 ### Draws your pictures in color, one layer at a time, so nobody has to know.
 
-ColorLayers is a fork of AutoDraw 2.2 by AlexDalas and Siydge. It is based on the upstream tag v2.1.1, whose code already labels itself 2.2. ColorLayers adds color layers, brush calibration, an optional outline brush and a placement overlay on top of the original monochrome drawing.
+ColorLayers is a fork of AutoDraw by AlexDalas and Siydge. ColorLayers 1.2 incorporates selected changes from AutoDraw’s main branch. It uses its own color layers, brush calibration, optional outline brush, and placement overlay alongside the classic monochrome mode.
 
 Synrik maintains this fork separately. The links below point to the original AutoDraw project and its community.
 

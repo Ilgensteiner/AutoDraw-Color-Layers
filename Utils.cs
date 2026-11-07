@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.IO;
 using System.Net;
@@ -20,13 +20,14 @@ public static class ImageExtensions
 {
     public static Bitmap ConvertToAvaloniaBitmap(this SKBitmap bitmap)
     {
-        return new Bitmap
-        (PixelFormat.Bgra8888, AlphaFormat.Premul,
-            bitmap.GetPixels(),
-            new PixelSize(bitmap.Width, bitmap.Height),
-            new Vector(96, 96),
-            bitmap.RowBytes
-        );
+        if (bitmap.ColorType == SKColorType.Bgra8888 && bitmap.AlphaType == SKAlphaType.Premul)
+            return new Bitmap(PixelFormat.Bgra8888, AlphaFormat.Premul, bitmap.GetPixels(),
+                new PixelSize(bitmap.Width, bitmap.Height), new Vector(96, 96), bitmap.RowBytes);
+
+        using var encodedStream = new MemoryStream();
+        bitmap.Encode(encodedStream, SKEncodedImageFormat.Png, 100);
+        encodedStream.Seek(0, SeekOrigin.Begin);
+        return new Bitmap(encodedStream);
     }
 }
 
@@ -45,7 +46,7 @@ public class Config
     public static bool IsStopDrawingKey(KeyCode key) =>
         key == Keybind_StopDrawing || key == KeyCode.VcDelete || key == KeyCode.VcEnd;
     
-    public static Vector2 Preview_LastLockPos = new Vector2(0,0);
+    public static Vector2 Preview_LastLockPos = new(0,0);
 
     public static string ConfigPath = Path.Combine(FolderPath, "config.json");
     public static string ThemesPath = Path.Combine(FolderPath, "Themes");
@@ -151,9 +152,10 @@ public class Utils
     public static bool LoggingEnabled = Config.GetEntry("logsEnabled") == "True";
     public static StreamWriter? LogObject;
 
-    public static void Log(string text)
+    public static void Log(object data)
     {
-        Debug.WriteLine(text);
+        string text = data.ToString() ?? "null";
+        Console.WriteLine(text);
         if (!LoggingEnabled) return;
         if (!Directory.Exists(LogFolder)) Directory.CreateDirectory(LogFolder);
         if (LogObject == null) LogObject = new StreamWriter(LogsPath);

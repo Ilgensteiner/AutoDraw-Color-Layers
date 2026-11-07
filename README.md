@@ -1,4 +1,4 @@
-<h1 align="center">ColorLayers by Synrik 1.0</h1>
+<h1 align="center">ColorLayers by Synrik 1.2</h1>
 
 <p align="center">
 <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="Lizenz MIT"></a>
@@ -41,7 +41,7 @@ Die wichtigsten Funktionen im Überblick
 
 ## Herkunft und Lizenz
 
-ColorLayers by Synrik 1.0 basiert auf AutoDraw von AlexDalas und Siydge. Grundlage ist der Upstream-Tag `v2.1.1`, dessen Code sich selbst bereits als Version 2.2 bezeichnet. Deshalb ist in dieser Anleitung von AutoDraw 2.2 die Rede.
+ColorLayers basiert auf AutoDraw von AlexDalas und Siydge. Version 1.0 baute auf dem Upstream-Tag `v2.1.1` auf. Version 1.2 übernimmt ausgewählte Änderungen aus AutoDraws Entwicklungsbranch `main`, darunter den automatischen Zoom der Bildvorschau, den Import aus der Zwischenablage und die Unterstützung für .NET 8. Farbplanung, Overlay, Größenregler und Maussteuerung stammen weiterhin von ColorLayers.
 
 Das Projekt steht wie das Original unter der MIT-Lizenz. Die Datei [LICENSE](LICENSE) ist unverändert übernommen, inklusive des ursprünglichen Copyright-Hinweises. Weitere Lizenzen eingebundener Komponenten findest du in [Assets/LICENSES.txt](Assets/LICENSES.txt).
 
@@ -50,11 +50,11 @@ Synrik pflegt ColorLayers als eigenständigen Fork. Die verlinkten Releases und 
 ## Voraussetzungen
 
 - Windows 10 oder 11 in der 64-Bit-Version
-- Das .NET SDK in Version 6 oder neuer zum Bauen
-- Die .NET 6 Desktop Runtime zum Ausführen, denn der Build ist framework-abhängig und bringt die Laufzeit nicht selbst mit
+- Das .NET SDK in Version 8 oder neuer zum Bauen
+- Die .NET 8 Runtime für den unten beschriebenen Build
 - Ein Zeichenprogramm, das normale Mauseingaben annimmt, zum Beispiel Paint
 
-Dieser Fork zielt auf `net6.0-windows` und ist für Windows x64 eingerichtet.
+Dieser Fork zielt auf `net8.0-windows` und ist für Windows x64 eingerichtet.
 
 ## Bauen und starten
 
@@ -66,7 +66,7 @@ dotnet publish Autodraw.csproj -c Release -r win-x64 --self-contained false -o p
 
 Danach liegt im Ordner `publish` die Datei `Autodraw.exe`. Starte sie per Doppelklick. Den ganzen Ordner kannst du an einen beliebigen Ort kopieren, die EXE braucht die Dateien daneben.
 
-Falls Windows beim ersten Start meldet, dass die .NET Desktop Runtime fehlt, installiere die Version 6 von Microsoft und starte erneut.
+Falls Windows beim ersten Start nach der .NET-Laufzeit fragt, installiere die .NET 8 Runtime für Windows x64 und starte erneut.
 
 ## Schnellstart mit Paint
 
@@ -232,7 +232,8 @@ Die erste Generation, AutoDrawer 1.x, war in C# mit WPF geschrieben und lief nur
 Alle folgenden Links führen zum ursprünglichen AutoDraw-Projekt und zu dessen Support.
 
 - [Original-Repository von AutoDraw auf GitHub](https://github.com/auto-draw/autodraw)
-- [Original-Quellstand, Tag v2.1.1, auf dem ColorLayers basiert](https://github.com/auto-draw/autodraw/tree/v2.1.1)
+- [AutoDraw-Entwicklungsstand für ColorLayers 1.2](https://github.com/auto-draw/autodraw/tree/782500235e9816eba197075c50b88e2b32d218ef)
+- [AutoDraw-Tag v2.1.1, Basis von ColorLayers 1.0](https://github.com/auto-draw/autodraw/tree/v2.1.1)
 - [Original-Releases von AutoDraw, ohne ColorLayers](https://github.com/auto-draw/autodraw/releases)
 - [Originale Dokumentation von AutoDraw](https://github.com/auto-draw/autodraw/wiki)
 - [Originaler Discord-Server von AutoDraw](https://discord.gg/rwvUFraDnb)
